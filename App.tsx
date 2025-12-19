@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { ModelType, UploadedFile, GeneratedExam } from './types';
 import { FileUploader } from './components/FileUploader';
 import { ExamPreview } from './components/ExamPreview';
 import { ApiKeyInput } from './components/ApiKeyInput';
 import { generateExamCopy } from './services/geminiService';
-import { Zap, BrainCircuit, Copy, Loader2, Copyright, CheckCircle2 } from 'lucide-react';
+import { Zap, BrainCircuit, Copy, Loader2, Copyright, CheckCircle2, Settings } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [apiKey, setApiKey] = useState<string>('');
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('GEMINI_API_KEY') || '');
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [model, setModel] = useState<ModelType>(ModelType.FLASH);
   const [numCopies, setNumCopies] = useState(1);
@@ -15,13 +16,21 @@ const App: React.FC = () => {
   const [generatedExams, setGeneratedExams] = useState<GeneratedExam[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const handleGenerate = async () => {
-    if (!apiKey) {
-      setError("Vui lòng nhập và lưu API Key trước khi tiếp tục.");
-      return;
+  useEffect(() => {
+    if (apiKey) {
+      localStorage.setItem('GEMINI_API_KEY', apiKey);
     }
+  }, [apiKey]);
+
+  const handleGenerate = async () => {
     if (files.length === 0) {
       setError("Vui lòng tải lên ít nhất một file đề gốc.");
+      return;
+    }
+    
+    const finalKey = apiKey.trim() || (process.env.API_KEY || "").trim();
+    if (!finalKey) {
+      setError("Vui lòng nhập và nhấn 'Lưu' API Key trước khi thực hiện.");
       return;
     }
 
@@ -60,7 +69,7 @@ const App: React.FC = () => {
                 <Copy size={28} />
             </div>
             <div>
-              <h1 className="text-2xl font-black text-blue-900 tracking-tight uppercase">NHÂN BẢN ĐỀ KIỂM TRA</h1>
+              <h1 className="text-2xl font-black text-blue-900 tracking-tight uppercase">TẠO BẢN SAO ĐỀ</h1>
               <p className="text-xs text-blue-600 font-semibold tracking-wide">CÔNG CỤ HỖ TRỢ GIÁO VIÊN TOÁN</p>
             </div>
           </div>
@@ -75,9 +84,12 @@ const App: React.FC = () => {
         {/* Left Sidebar: Controls */}
         <div className="lg:col-span-4 space-y-6">
           
-          {/* API Key Input */}
+          {/* Settings Section */}
           <section className="bg-white p-6 rounded-2xl shadow-sm border border-blue-100">
-             <ApiKeyInput onKeyChange={setApiKey} />
+            <h2 className="text-lg font-bold text-blue-900 mb-4 flex items-center gap-2">
+                <Settings size={20} className="text-blue-600" /> Cấu hình API
+            </h2>
+            <ApiKeyInput apiKey={apiKey} onApiKeyChange={setApiKey} />
           </section>
 
           {/* 1. Model Selection */}
@@ -110,13 +122,6 @@ const App: React.FC = () => {
                 <span className="font-bold text-sm">Pro (Thông minh)</span>
               </button>
             </div>
-            <div className="mt-4 p-3 bg-gray-50 rounded-lg text-xs text-gray-600 leading-relaxed">
-                {model === ModelType.FLASH ? (
-                    <p>⚡ <strong>Flash:</strong> Tốc độ xử lý nhanh, thích hợp cho các đề cơ bản, bài tập về nhà.</p>
-                ) : (
-                    <p>🧠 <strong>Pro:</strong> Sử dụng khả năng suy luận sâu (Thinking) để phân tích đề khó, hình học phức tạp.</p>
-                )}
-            </div>
           </section>
 
           {/* 2. Upload & Settings */}
@@ -130,25 +135,23 @@ const App: React.FC = () => {
 
             <div className="mt-6 pt-4 border-t border-gray-100">
                <label className="text-sm font-bold text-gray-700 mb-2 block">Số lượng bản sao cần tạo:</label>
-               <div className="flex items-center gap-4">
-                   <input
-                    type="number"
-                    min="1"
-                    value={numCopies}
-                    onChange={(e) => setNumCopies(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="flex-1 p-2 border border-blue-200 rounded-lg text-center font-bold text-blue-900 focus:ring-2 focus:ring-blue-500 outline-none"
-                   />
-               </div>
-               <p className="text-xs text-gray-500 mt-2 italic">Nhập số lượng bản sao mong muốn (không giới hạn).</p>
+               <input
+                type="number"
+                min="1"
+                max="10"
+                value={numCopies}
+                onChange={(e) => setNumCopies(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-full p-2 border border-blue-200 rounded-lg text-center font-bold text-blue-900 focus:ring-2 focus:ring-blue-500 outline-none"
+               />
             </div>
           </section>
 
           {/* Generate Button */}
           <button
             onClick={handleGenerate}
-            disabled={isGenerating || files.length === 0 || !apiKey}
+            disabled={isGenerating || files.length === 0}
             className={`w-full py-4 px-6 rounded-2xl font-bold text-lg text-white shadow-xl transition-all transform active:scale-95 flex items-center justify-center gap-3 ${
-              isGenerating || files.length === 0 || !apiKey
+              isGenerating || files.length === 0
                 ? 'bg-gray-400 cursor-not-allowed'
                 : 'bg-gradient-to-r from-blue-700 to-indigo-800 hover:from-blue-600 hover:to-indigo-700 hover:shadow-2xl ring-4 ring-blue-50'
             }`}
@@ -177,7 +180,7 @@ const App: React.FC = () => {
                 <h2 className="text-2xl font-bold text-blue-900 flex items-center gap-2">
                     <CheckCircle2 className="text-green-500" /> Kết quả Preview
                 </h2>
-                <span className="text-sm text-gray-500 italic">Hỗ trợ LaTeX (Katex) & Python Code</span>
+                <span className="text-sm text-gray-500 italic">Hỗ trợ LaTeX & Vẽ hình tự động</span>
             </div>
 
             {generatedExams.length === 0 ? (
@@ -186,7 +189,7 @@ const App: React.FC = () => {
                         <Copy size={48} className="text-blue-200"/>
                     </div>
                     <h3 className="text-lg font-semibold text-gray-600 mb-2">Chưa có nội dung</h3>
-                    <p className="text-sm max-w-md mx-auto">Vui lòng nhập API Key, tải lên đề gốc và nhấn "Tạo đề ngay".</p>
+                    <p className="text-sm max-w-md mx-auto">Tải file và nhấn "Tạo đề ngay" để xem bản xem trước.</p>
                 </div>
             ) : (
                 <div className="space-y-8">
@@ -194,6 +197,7 @@ const App: React.FC = () => {
                         <ExamPreview
                             key={exam.id}
                             exam={exam}
+                            apiKey={apiKey}
                             originalFileName={files[0]?.file.name || 'Tai_lieu_goc'}
                         />
                     ))}
@@ -206,7 +210,7 @@ const App: React.FC = () => {
         <div className="flex flex-col items-center justify-center gap-2">
             <div className="flex items-center gap-2 font-semibold">
                 <Copyright size={16}/>
-                <span>Bản quyền ứng dụng thuộc về Lê Hoà Hiệp</span>
+                <span>Thiết kế bởi Hoà Hiệp AI</span>
             </div>
             <span className="font-mono bg-blue-100 px-2 py-0.5 rounded text-blue-800 text-xs">0983.676.470</span>
         </div>
