@@ -66,14 +66,14 @@ export const generateDocx = async (
         const line = lines[i].trim();
         if (line.includes(':::')) {
           const tableRows: TableRow[] = [];
-          // Grouping consecutive rows in Word export as well
           while (i < lines.length && lines[i].trim().includes(':::')) {
             const cells = lines[i].trim().split(':::').map(c => c.trim());
             tableRows.push(new TableRow({
               children: cells.map(c => new TableCell({
                 children: [new Paragraph({
                   children: [new TextRun({ 
-                    text: c.replace(/\$/g, '').replace(/\*\*/g, ''), 
+                    // Giữ lại dấu $ để MathType có thể nhận diện
+                    text: c.replace(/\*\*/g, ''), 
                     font: FONT_FAMILY, 
                     size: FONT_SIZE 
                   })],
@@ -101,7 +101,8 @@ export const generateDocx = async (
           const isHeader = (line === line.toUpperCase() && line.length > 5) || line.includes('SỞ GD&ĐT') || line.includes('ĐỀ SỐ');
           children.push(new Paragraph({
             children: [new TextRun({ 
-                text: line.replace(/\$/g, '').replace(/\*\*/g, ''), 
+                // Giữ lại dấu $ để hỗ trợ chuyển đổi sang MathType
+                text: line.replace(/\*\*/g, ''), 
                 font: FONT_FAMILY, 
                 size: FONT_SIZE, 
                 bold: isHeader 
