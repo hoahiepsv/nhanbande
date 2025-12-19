@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { ModelType } from "../types";
 import { fileToGenerativePart } from "../utils/helpers";
@@ -8,57 +9,44 @@ export const generateExamCopy = async (
   files: File[],
   copyIndex: number
 ): Promise<string> => {
-  // Use the key provided by the user via the UI
-  const ai = new GoogleGenAI({ apiKey: apiKey });
-
+  const finalApiKey = apiKey.trim() || (process.env.API_KEY || "").trim();
+  const ai = new GoogleGenAI({ apiKey: finalApiKey });
   const fileParts = await Promise.all(files.map(f => fileToGenerativePart(f)));
 
   const systemInstruction = `
-Bạn là một chuyên gia biên soạn đề thi Toán học chuyên nghiệp.
-Nhiệm vụ: Phân tích hình ảnh/PDF đề gốc và tạo ra "Đề bản sao số ${copyIndex}".
+Bạn là chuyên gia biên soạn đề thi Toán chuyên nghiệp. Nhiệm vụ của bạn là tạo ra "Đề bản sao số ${copyIndex}" dựa trên đề gốc.
 
-QUY TẮC CẤU TRÚC & TRÌNH BÀY (QUAN TRỌNG):
+QUY TẮC LATEX & ĐỊNH DẠNG (QUAN TRỌNG):
+1. **Công thức PHỨC TẠP**: Sử dụng LaTeX đặt trong dấu $ cho các biểu thức như phân số (\\frac), tích phân (\\int), căn thức (\\sqrt), số mũ phức tạp, ma trận... Ví dụ: $f(x) = \\frac{x^2 + 1}{\\sqrt{x}}$.
+2. **Ký hiệu ĐƠN GIẢN**: TUYỆT ĐỐI KHÔNG sử dụng dấu $ cho:
+   - Tên điểm (Ví dụ: Viết "AB" thay vì "$AB$").
+   - Số phần trăm (Ví dụ: Viết "50%" thay vì "$50%$").
+   - Các chữ cái đơn lẻ hoặc biến số đơn giản trong văn bản thông thường.
+   - Các nhãn đơn giản như "Câu 1", "Bài 2".
 
-1.  **PHẦN ĐẦU (HEADER) - BỐ CỤC BẢNG BIỂU**:
-    *   Trích xuất chính xác thông tin: Tên Sở, Tên Trường, Tên Kỳ Thi, Môn Thi, Thời Gian làm bài từ đề gốc.
-    *   **QUAN TRỌNG**: Sử dụng ký hiệu \`:::\` để ngăn cách các cột. **TUYỆT ĐỐI KHÔNG** dùng dấu \`|\` để chia cột vì sẽ nhầm với dấu trị tuyệt đối trong toán học.
-    *   **Vị trí "Đề số ${copyIndex}"**: Thêm dòng chữ "**Đề số ${copyIndex}**" nằm ngay phía dưới Tên Trường.
-    *   Mẫu output bắt buộc cho phần Header:
-        \`SỞ GD&ĐT [TÊN SỞ] ::: KỲ THI [TÊN KỲ THI]\`
-        \`TRƯỜNG [TÊN TRƯỜNG] ::: Môn thi: TOÁN\`
-        \`**Đề số ${copyIndex}** ::: Thời gian làm bài: [Thời gian]\`
-    *   Nếu có dòng Họ tên học sinh/Số báo danh, cũng dùng \`:::\` để chia cột.
+QUY TẮC HÌNH ẢNH (BẮT BUỘC SỬ DỤNG THẺ ĐÓNG):
+1. **HÌNH HỌC PHẲNG (2D)**:
+   - Viết mã Python trong block: [[GEOMETRY_CODE]] ...mã python... [[/GEOMETRY_CODE]]
+   - PHẢI tính toán tọa độ (x, y) chính xác. Sử dụng plt.text() để đánh nhãn.
 
-2.  **PHẦN NỘI DUNG ĐỀ THI**:
-    *   Giữ nguyên 100% cấu trúc đề (số câu, chia phần trắc nghiệm/tự luận).
-    *   **Tạo câu hỏi bản sao (Clone)**:
-        *   Giữ nguyên dạng toán, phương pháp giải, mức độ khó.
-        *   THAY ĐỔI SỐ LIỆU: Số liệu mới phải hợp lý, ra kết quả đẹp.
-        *   Bài toán thực tế: Thay đổi ngữ cảnh/chủ đề nhưng giữ nguyên mô hình toán học.
+2. **HÌNH KHỐI 3D & MINH HỌA**:
+   - Viết mô tả tiếng Anh trong block: [[AI_IMAGE_PROMPT]] ...mô tả chi tiết... [[/AI_IMAGE_PROMPT]]
+   - **Yêu cầu mô tả**: Nêu rõ loại hình, các đỉnh (ví dụ: S.ABCD), đặc điểm đáy, vị trí đường cao.
+   - **Phong cách**: "Professional 3D mathematical diagram, clean black lines on white background, high contrast, clearly labeled vertices".
 
-3.  **HÌNH ẢNH & ĐỒ THỊ**:
-    *   Hình 2D: Viết mã \`LaTeX TikZ\` trong block code (\`\`\`latex ... \`\`\`).
-    *   Hình 3D/Đồ thị phức tạp: Viết mã \`Python\` trong block code (\`\`\`python ... \`\`\`).
-
-4.  **ĐỊNH DẠNG TOÁN HỌC**:
-    *   Dùng ký hiệu \`$\` cho biểu thức toán (ví dụ: $y = x^2 + |x|$).
-    *   Lưu ý: Dấu trị tuyệt đối dùng \`|\` bình thường trong công thức toán ($|a|$), không ảnh hưởng đến bố cục bảng biểu vì bảng biểu dùng \`:::\`.
-
-5.  **PHẦN CUỐI**:
-    *   Tạo bảng đáp án chi tiết cho các câu hỏi đã thay đổi ở cuối trang.
-
-OUTPUT FORMAT:
-Chỉ trả về nội dung văn bản đề thi.
+QUY TẮC CẤU TRÚC:
+1. **Bảng biểu**: Sử dụng ':::' để phân tách các cột.
+2. **Nội dung**: Giữ nguyên cấu trúc, thay đổi số liệu thông minh.
+3. **Bản quyền**: Tuyệt đối không ghi ký tự "L" hay bất kỳ dấu hiệu bản quyền nào.
 `;
 
   const config: any = {
     systemInstruction: systemInstruction,
-    temperature: 0.4, // Lower temperature for more precise math
+    temperature: 0.3,
   };
 
   if (model === ModelType.PRO) {
-    // Enable thinking budget for Pro models for deeper analysis and better math logic
-    config.thinkingConfig = { thinkingBudget: 10240 }; 
+    config.thinkingConfig = { thinkingBudget: 16000 }; 
   }
 
   try {
@@ -67,15 +55,18 @@ Chỉ trả về nội dung văn bản đề thi.
       contents: [
         ...fileParts,
         {
-            text: `Thực hiện tạo bản sao đề số ${copyIndex}. Nhớ dùng ":::" để chia cột Header. Các công thức trị tuyệt đối dùng "|" bình thường.`
+            text: `Dựa trên file đề gốc, hãy tạo "Bản sao số ${copyIndex}". Hãy chắc chắn RẰNG các block [[GEOMETRY_CODE]] và [[AI_IMAGE_PROMPT]] luôn có thẻ đóng tương ứng là [[/GEOMETRY_CODE]] và [[/AI_IMAGE_PROMPT]].`
         }
       ],
       config: config
     });
 
-    return response.text || "Không thể tạo nội dung. Vui lòng thử lại.";
+    return response.text || "Lỗi: Không nhận được phản hồi từ AI.";
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    throw new Error(`Lỗi khi gọi AI: ${error.message || error}`);
+    if (error.message?.includes('ISO-8859-1') || error.message?.includes('Headers')) {
+       throw new Error("Lỗi định dạng yêu cầu. Vui lòng kiểm tra lại API Key hoặc nội dung file.");
+    }
+    throw new Error(`Lỗi kết nối AI: ${error.message || "Kiểm tra lại kết nối mạng"}`);
   }
 };
