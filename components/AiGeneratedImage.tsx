@@ -1,17 +1,16 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI } from "@google/genai";
-import { Loader2, AlertCircle, Sparkles, RefreshCw } from 'lucide-react';
+import { Loader2, AlertCircle, Sparkles, RefreshCw, Clock } from 'lucide-react';
 
 interface AiGeneratedImageProps {
   prompt: string;
-  apiKey?: string;
   onImageGenerated?: (base64: string) => void;
 }
 
-export const AiGeneratedImage: React.FC<AiGeneratedImageProps> = ({ prompt, apiKey, onImageGenerated }) => {
+export const AiGeneratedImage: React.FC<AiGeneratedImageProps> = ({ prompt, onImageGenerated }) => {
   const [imgUrl, setImgUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; isQuota: boolean } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const requestCount = useRef(0);
 
@@ -19,15 +18,11 @@ export const AiGeneratedImage: React.FC<AiGeneratedImageProps> = ({ prompt, apiK
     setIsLoading(true);
     setError(null);
     try {
-      const finalApiKey = (apiKey || "").trim() || (process.env.API_KEY || "").trim();
-      if (!finalApiKey) throw new Error("Chưa có API Key để tạo ảnh.");
-
-      const ai = new GoogleGenAI({ apiKey: finalApiKey });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
-      // Bổ sung các từ khóa tối ưu cho việc minh họa giáo dục nếu AI chưa thêm vào
       const enhancedPrompt = prompt.toLowerCase().includes('white background') 
         ? prompt 
-        : `${prompt}, black lines, white background, 3D mathematical illustration, clear labels, professional diagram`;
+        : `${prompt}, professional 3D mathematical diagram, black lines, white background, educational illustration, high contrast, clear geometric depth, soft shading`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
@@ -37,17 +32,32 @@ export const AiGeneratedImage: React.FC<AiGeneratedImageProps> = ({ prompt, apiK
         }
       });
 
-      const part = response.candidates?.[0]?.content?.parts.find(p => p.inlineData);
-      if (part?.inlineData) {
-        const b64 = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-        setImgUrl(b64);
-        if (onImageGenerated) onImageGenerated(b64);
-      } else {
-        throw new Error("Không nhận được dữ liệu hình ảnh từ AI.");
+      let foundImage = false;
+      if (response.candidates?.[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData) {
+            const b64 = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            setImgUrl(b64);
+            if (onImageGenerated) onImageGenerated(b64);
+            foundImage = true;
+            break;
+          }
+        }
+      }
+
+      if (!foundImage) {
+        throw new Error("AI không trả về dữ liệu hình ảnh.");
       }
     } catch (err: any) {
       console.error("AI Image Generation Error:", err);
-      setError(err.message);
+      const isQuota = err.message?.includes('429') || err.message?.includes('quota') || err.message?.includes('RESOURCE_EXHAUSTED');
+      
+      setError({
+        message: isQuota 
+          ? "Bạn đã hết lượt dùng thử miễn phí trong phút này. Vui lòng đợi khoảng 30-60 giây rồi nhấn 'Thử lại'."
+          : "Lỗi tạo hình ảnh: " + (err.message || "Không xác định"),
+        isQuota
+      });
     } finally {
       setIsLoading(false);
     }
@@ -62,47 +72,62 @@ export const AiGeneratedImage: React.FC<AiGeneratedImageProps> = ({ prompt, apiK
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 bg-indigo-50 rounded-xl border border-dashed border-indigo-300 w-full max-w-[400px] mx-auto">
-        <Sparkles className="animate-pulse text-indigo-600 mb-2" />
-        <p className="text-[10px] text-indigo-500 font-medium uppercase tracking-wider">AI đang vẽ hình theo đề bài...</p>
+      <div className="flex flex-col items-center justify-center p-8 bg-indigo-50 rounded-2xl border border-dashed border-indigo-300 w-full max-w-[400px] mx-auto transition-all animate-in fade-in zoom-in duration-300">
+        <div className="relative">
+          <Sparkles className="animate-pulse text-indigo-600 mb-2" size={32} />
+          <Loader2 className="absolute -top-1 -right-1 animate-spin text-indigo-400" size={16} />
+        </div>
+        <p className="text-[11px] text-indigo-600 font-black uppercase tracking-widest mt-2">AI đang vẽ hình trực quan...</p>
+        <p className="text-[9px] text-indigo-400 mt-1 italic">Vui lòng đợi trong giây lát</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-3 bg-orange-50 text-orange-700 rounded-lg text-xs flex items-center gap-2 border border-orange-200 w-full max-w-[400px] mx-auto">
-        <AlertCircle size={14} />
-        <div className="flex-1">
-          <span>{error}</span>
-          <button onClick={generateImage} className="ml-2 font-bold underline">Thử lại</button>
+      <div className={`p-5 rounded-2xl text-xs border w-full max-w-[400px] mx-auto shadow-sm transition-all ${error.isQuota ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+        <div className="flex items-start gap-3">
+          {error.isQuota ? <Clock className="shrink-0 mt-0.5" size={18} /> : <AlertCircle className="shrink-0 mt-0.5" size={18} />}
+          <div className="flex-1">
+            <p className="font-bold mb-1 uppercase tracking-tight">{error.isQuota ? "Giới hạn lượt dùng" : "Cảnh báo lỗi"}</p>
+            <p className="leading-relaxed opacity-90">{error.message}</p>
+            <button 
+              onClick={generateImage} 
+              className={`mt-3 px-4 py-2 rounded-xl font-black flex items-center gap-2 transition-all active:scale-95 ${error.isQuota ? 'bg-amber-600 text-white hover:bg-amber-700' : 'bg-red-600 text-white hover:bg-red-700'}`}
+            >
+              <RefreshCw size={14} /> THỬ LẠI NGAY
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="relative group flex flex-col items-center">
-       <div className="text-[10px] text-indigo-500 font-bold mb-2 uppercase flex items-center gap-1">
-        <Sparkles size={12} /> Hình khối 3D minh họa
+    <div className="relative group flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+       <div className="text-[10px] text-indigo-600 font-black mb-3 uppercase flex items-center gap-1.5 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100 shadow-sm">
+        <Sparkles size={12} className="fill-indigo-500" /> Hình minh họa trực quan
       </div>
-      <div className="relative">
+      <div className="relative group">
         {imgUrl && (
           <img 
             src={imgUrl} 
             alt="AI Generated Illustration" 
-            className="max-w-full w-[400px] h-auto rounded-2xl shadow-xl border border-indigo-100" 
+            className="max-w-full w-[400px] h-auto rounded-[2rem] shadow-2xl border-4 border-white ring-1 ring-indigo-100 transition-transform group-hover:scale-[1.02] duration-300" 
           />
         )}
+        <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
         <button
           onClick={generateImage}
-          className="absolute top-3 right-3 bg-white/90 hover:bg-white p-2.5 rounded-full shadow-2xl opacity-0 group-hover:opacity-100 transition-all text-indigo-600 border border-indigo-50 transform hover:scale-110 active:rotate-180"
-          title="Yêu cầu AI vẽ lại hình mới"
+          className="absolute bottom-4 right-4 bg-white/95 hover:bg-white p-3 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all text-indigo-600 border border-indigo-50 transform hover:scale-110 active:rotate-180"
+          title="Yêu cầu AI vẽ lại"
         >
-          <RefreshCw size={20} />
+          <RefreshCw size={22} />
         </button>
       </div>
-      <span className="text-[10px] text-gray-400 italic mt-2">Được tạo dựa trên thông số đề bài</span>
+      <div className="flex items-center gap-2 mt-3">
+        <span className="text-[9px] text-gray-400 font-bold tracking-widest uppercase">AI Illustration System</span>
+      </div>
     </div>
   );
 };
