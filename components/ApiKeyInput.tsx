@@ -1,83 +1,79 @@
-import React, { useState, useEffect } from 'react';
-import { Key, Save, Edit, Eye, EyeOff } from 'lucide-react';
+
+import React, { useState } from 'react';
+import { Key, Save, Edit2, CheckCircle2 } from 'lucide-react';
 
 interface ApiKeyInputProps {
-  onKeyChange: (key: string) => void;
+  apiKey: string;
+  onApiKeyChange: (key: string) => void;
 }
 
-export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ onKeyChange }) => {
-  const [key, setKey] = useState('');
-  const [isSaved, setIsSaved] = useState(false);
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    const savedKey = localStorage.getItem('gemini_api_key');
-    if (savedKey) {
-      setKey(savedKey);
-      setIsSaved(true);
-      onKeyChange(savedKey);
-    }
-  }, [onKeyChange]);
+export const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ apiKey, onApiKeyChange }) => {
+  const [isEditing, setIsEditing] = useState(!apiKey);
+  const [inputValue, setInputValue] = useState(apiKey);
 
   const handleSave = () => {
-    if (key.trim()) {
-      localStorage.setItem('gemini_api_key', key);
-      setIsSaved(true);
-      onKeyChange(key);
+    if (inputValue.trim()) {
+      onApiKeyChange(inputValue.trim());
+      setIsEditing(false);
     }
   };
 
   const handleEdit = () => {
-    setIsSaved(false);
+    setIsEditing(true);
   };
 
-  if (isSaved) {
-    return (
-      <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 text-sm">
-        <Key size={16} />
-        <span className="font-semibold">API Key đã được lưu</span>
-        <button
-          onClick={handleEdit}
-          className="ml-auto flex items-center gap-1 text-blue-600 hover:text-blue-800 underline text-xs"
-        >
-          <Edit size={14} /> Chỉnh sửa
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-2">
-      <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-        <Key size={16} className="text-primary" />
-        Nhập Google Gemini API Key
+    <div className="space-y-3">
+      <label className="text-sm font-bold text-gray-700 flex items-center justify-between">
+        <span className="flex items-center gap-2">
+            <Key size={16} className="text-blue-600" /> API Key (Gemini)
+        </span>
+        {!isEditing && apiKey && (
+            <span className="text-[10px] text-green-600 flex items-center gap-1 font-bold animate-pulse">
+                <CheckCircle2 size={12} /> ĐÃ LƯU
+            </span>
+        )}
       </label>
+      
       <div className="flex gap-2">
         <div className="relative flex-1">
-          <input
-            type={isVisible ? "text" : "password"}
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            className="w-full p-2 pr-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
-            placeholder="AIzaSy..."
-          />
-          <button
-            type="button"
-            onClick={() => setIsVisible(!isVisible)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-          >
-            {isVisible ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
+            <input
+                type="password"
+                value={isEditing ? inputValue : "••••••••••••••••••••"}
+                disabled={!isEditing}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="Dán API Key..."
+                className={`w-full p-3 pr-10 border rounded-xl outline-none text-sm font-mono transition-all ${
+                    isEditing 
+                    ? 'bg-white border-blue-200 focus:ring-2 focus:ring-blue-500 shadow-inner' 
+                    : 'bg-gray-50 border-gray-100 text-gray-400 cursor-not-allowed'
+                }`}
+            />
         </div>
-        <button
-          onClick={handleSave}
-          disabled={!key.trim()}
-          className="bg-primary text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2 transition-colors"
-        >
-          <Save size={16} /> Lưu
-        </button>
+
+        {isEditing ? (
+            <button
+                onClick={handleSave}
+                disabled={!inputValue.trim()}
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-bold text-sm transition-all shadow-md active:scale-95 whitespace-nowrap"
+            >
+                <Save size={18} />
+                Lưu
+            </button>
+        ) : (
+            <button
+                onClick={handleEdit}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-xl flex items-center gap-2 font-bold text-sm transition-all border border-gray-200 active:scale-95 whitespace-nowrap"
+            >
+                <Edit2 size={18} />
+                Sửa
+            </button>
+        )}
       </div>
-      <p className="text-xs text-gray-500">Key sẽ được lưu vào trình duyệt của bạn.</p>
+      
+      <p className="text-[10px] text-gray-400 leading-tight">
+        Lưu ý: API Key của bạn được lưu cục bộ trên trình duyệt để sử dụng cho lần sau.
+      </p>
     </div>
   );
 };
