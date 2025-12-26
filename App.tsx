@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { ModelType, UploadedFile, GeneratedExam } from './types';
 import { FileUploader } from './components/FileUploader';
 import { ExamPreview } from './components/ExamPreview';
+import { ApiKeyInput } from './components/ApiKeyInput';
 import { generateExamCopy } from './services/geminiService';
 import { Zap, BrainCircuit, Copy, Loader2, Copyright, CheckCircle2, AlertCircle, ShieldCheck } from 'lucide-react';
 
@@ -13,6 +14,11 @@ const App: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedExams, setGeneratedExams] = useState<GeneratedExam[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [customApiKey, setCustomApiKey] = useState<string>('');
+
+  const handleKeyChange = useCallback((key: string) => {
+    setCustomApiKey(key);
+  }, []);
 
   const handleGenerate = async () => {
     if (files.length === 0) {
@@ -29,7 +35,7 @@ const App: React.FC = () => {
       const rawFiles = files.map(f => f.file);
 
       for (let i = 1; i <= numCopies; i++) {
-        const content = await generateExamCopy(model, rawFiles, i);
+        const content = await generateExamCopy(model, rawFiles, i, customApiKey);
         newExams.push({
           id: Date.now().toString() + i,
           copyNumber: i,
@@ -63,10 +69,9 @@ const App: React.FC = () => {
           
           <div className="flex items-center gap-6">
             <div className="text-right hidden sm:block">
-                <p className="text-sm font-black text-slate-900 flex items-center justify-end gap-2">
-                   Hệ thống biên soạn đề
+                <p className="text-sm font-black text-slate-700 tracking-tight">
+                   Create by Hoà Hiệp AI – 0983.676.470
                 </p>
-                <p className="text-[10px] text-slate-500 font-mono tracking-widest mt-0.5">HỖ TRỢ MATHTYPE</p>
             </div>
           </div>
         </div>
@@ -74,6 +79,9 @@ const App: React.FC = () => {
 
       <main className="max-w-7xl mx-auto px-6 py-10 grid grid-cols-1 lg:grid-cols-12 gap-10">
         <div className="lg:col-span-4 space-y-8">
+          {/* Quản lý API Key */}
+          <ApiKeyInput onKeyChange={handleKeyChange} />
+
           <section className="bg-white p-7 rounded-[2.5rem] shadow-sm border border-slate-200">
             <h2 className="text-sm font-black text-slate-400 mb-5 flex items-center gap-2 uppercase tracking-widest">
                 <ShieldCheck size={18} className="text-blue-600" /> Trạng thái hệ thống
@@ -82,7 +90,9 @@ const App: React.FC = () => {
                <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
                <div>
                   <p className="text-xs font-black text-emerald-800 uppercase">AI Đã Sẵn Sàng</p>
-                  <p className="text-[10px] text-emerald-600 font-medium">Kết nối an toàn</p>
+                  <p className="text-[10px] text-emerald-600 font-medium">
+                    {customApiKey ? "Sử dụng API Key cá nhân" : "Sử dụng API Key hệ thống"}
+                  </p>
                </div>
             </div>
           </section>
@@ -201,11 +211,9 @@ const App: React.FC = () => {
       
       <footer className="mt-24 text-center pb-16 border-t border-slate-200 pt-12">
         <div className="flex flex-col items-center justify-center gap-6">
-            <div className="flex items-center gap-3 font-black uppercase tracking-[0.3em] text-slate-400 text-[10px]">
+            <div className="flex items-center gap-3 font-black uppercase tracking-[0.2em] text-slate-400 text-[10px]">
                 <Copyright size={14} className="text-slate-300"/>
-                <span>THIẾT KẾ BỞI HỆ THỐNG AI</span>
-                <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                <span>2024</span>
+                <span>Create by Hoà Hiệp AI – 0983.676.470</span>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <span className="font-mono bg-blue-600 px-5 py-2 rounded-2xl text-white font-black text-[10px] tracking-tighter shadow-lg shadow-blue-200">POWERED BY GEMINI 2.5</span>
