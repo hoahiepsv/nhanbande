@@ -9,7 +9,6 @@ export const generateExamCopy = async (
   copyIndex: number,
   customApiKey?: string
 ): Promise<string> => {
-  // Ưu tiên custom API Key từ người dùng, nếu không có dùng process.env.API_KEY
   const apiKey = customApiKey || process.env.API_KEY;
   const ai = new GoogleGenAI({ apiKey: apiKey as string });
   const fileParts = await Promise.all(files.map(f => fileToGenerativePart(f)));
@@ -60,5 +59,48 @@ QUY TẮC CẤU TRÚC:
   } catch (error: any) {
     console.error("Gemini API Error:", error);
     throw new Error(`Lỗi kết nối AI: ${error.message || "Kiểm tra lại kết nối mạng hoặc API Key"}`);
+  }
+};
+
+export const solveExam = async (
+  examContent: string,
+  model: ModelType,
+  customApiKey?: string
+): Promise<string> => {
+  const apiKey = customApiKey || process.env.API_KEY;
+  const ai = new GoogleGenAI({ apiKey: apiKey as string });
+
+  const systemInstruction = `
+Bạn là một chuyên gia giải Toán cao cấp. Nhiệm vụ của bạn là giải chi tiết đề thi được cung cấp.
+
+YÊU CẦU LỜI GIẢI:
+1. Trình bày rõ ràng, từng bước một.
+2. Với mỗi bài toán hình học, bạn BẮT BUỘC phải tạo hình vẽ minh họa (2D hoặc 3D) bằng các tag chuyên dụng:
+   - [[GEOMETRY_CODE]] cho code Python (Matplotlib).
+   - [[AI_IMAGE_PROMPT]] cho mô tả hình vẽ 3D trực quan.
+3. Tuân thủ quy tắc LaTeX: dùng $ cho công thức phức tạp, không dùng $ cho biến đơn (x, y), điểm (A, B), cạnh (AB).
+4. Sử dụng bảng biểu ':::' nếu cần trình bày bảng biến thiên hoặc bảng giá trị.
+5. Cuối mỗi bài giải phải có kết luận rõ ràng.
+
+ĐỊNH DẠNG ĐẦU RA:
+- Chia thành từng Câu/Bài tương ứng với đề thi.
+- Mỗi lời giải bao gồm: "Hướng dẫn giải", "Hình vẽ minh họa" (nếu có), "Lời giải chi tiết", và "Đáp số".
+`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: [{ text: `Hãy giải chi tiết đề thi sau đây:\n\n${examContent}` }],
+      config: {
+        systemInstruction: systemInstruction,
+        temperature: 0.1,
+        thinkingConfig: model === ModelType.PRO ? { thinkingBudget: 16000 } : undefined
+      }
+    });
+
+    return response.text || "Lỗi: Không thể tạo lời giải.";
+  } catch (error: any) {
+    console.error("Gemini Solve Error:", error);
+    throw new Error(`Lỗi giải đề: ${error.message}`);
   }
 };
