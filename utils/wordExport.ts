@@ -1,5 +1,5 @@
 
-import { Document, Packer, Paragraph, TextRun, Footer, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun } from "docx";
+import { Document, Packer, Paragraph, TextRun, Footer, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, PageBreak } from "docx";
 import * as FileSaver from "file-saver";
 
 const FONT_FAMILY = "Times New Roman";
@@ -23,14 +23,8 @@ const base64ToUint8Array = (base64: string): Uint8Array => {
   }
 };
 
-export const generateDocx = async (
-  content: string, 
-  copyNumber: number, 
-  originalFileName: string, 
-  mediaStorage: Record<number, string>
-) => {
-  const children: (Paragraph | Table)[] = [];
-  
+const processContentToElements = (content: string, mediaStorage: Record<number, string>): (Paragraph | Table)[] => {
+  const elements: (Paragraph | Table)[] = [];
   const parts = content.split(/(\[\[GEOMETRY_CODE\]\][\s\S]*?\[\[\/GEOMETRY_CODE\]\]|\[\[AI_IMAGE_PROMPT\]\][\s\S]*?\[\[\/AI_IMAGE_PROMPT\]\]|```[\s\S]*?```)/g);
 
   parts.forEach((part, index) => {
@@ -39,7 +33,7 @@ export const generateDocx = async (
     if (part.startsWith('[[GEOMETRY_CODE]]') || part.startsWith('[[AI_IMAGE_PROMPT]]') || (part.startsWith('```') && part.includes('python'))) {
       const imgData = base64ToUint8Array(mediaStorage[index]);
       if (imgData.length > 0) {
-        children.push(new Paragraph({
+        elements.push(new Paragraph({
           children: [
             new ImageRun({
               data: imgData,
@@ -51,14 +45,14 @@ export const generateDocx = async (
         }));
       }
     } else if (part.startsWith('```')) {
-        if (!part.includes('python')) {
-            const code = part.replace(/```/g, '').trim();
-            children.push(new Paragraph({
-                children: [new TextRun({ text: code, font: "Courier New", size: 20 })],
-                shading: { fill: "F3F4F6" },
-                spacing: { before: 200, after: 200 }
-            }));
-        }
+      if (!part.includes('python')) {
+        const code = part.replace(/```/g, '').trim();
+        elements.push(new Paragraph({
+          children: [new TextRun({ text: code, font: "Courier New", size: 20 })],
+          shading: { fill: "F3F4F6" },
+          spacing: { before: 200, after: 200 }
+        }));
+      }
     } else {
       const lines = part.split('\n');
       let i = 0;
@@ -79,17 +73,17 @@ export const generateDocx = async (
                   alignment: AlignmentType.CENTER
                 })],
                 borders: {
-                    top: { style: BorderStyle.SINGLE, size: 1, color: COLOR_BLACK },
-                    bottom: { style: BorderStyle.SINGLE, size: 1, color: COLOR_BLACK },
-                    left: { style: BorderStyle.SINGLE, size: 1, color: COLOR_BLACK },
-                    right: { style: BorderStyle.SINGLE, size: 1, color: COLOR_BLACK },
+                  top: { style: BorderStyle.SINGLE, size: 1, color: COLOR_BLACK },
+                  bottom: { style: BorderStyle.SINGLE, size: 1, color: COLOR_BLACK },
+                  left: { style: BorderStyle.SINGLE, size: 1, color: COLOR_BLACK },
+                  right: { style: BorderStyle.SINGLE, size: 1, color: COLOR_BLACK },
                 }
               }))
             }));
             i++;
           }
           if (tableRows.length > 0) {
-            children.push(new Table({ 
+            elements.push(new Table({ 
               rows: tableRows, 
               width: { size: 100, type: WidthType.PERCENTAGE },
               spacing: { before: 200, after: 200 }
@@ -98,12 +92,12 @@ export const generateDocx = async (
           continue;
         } else if (line !== "") {
           const isHeader = (line === line.toUpperCase() && line.length > 5) || line.includes('SỞ GD&ĐT') || line.includes('ĐỀ SỐ');
-          children.push(new Paragraph({
+          elements.push(new Paragraph({
             children: [new TextRun({ 
-                text: line.replace(/\*\*/g, ''), 
-                font: FONT_FAMILY, 
-                size: FONT_SIZE, 
-                bold: isHeader 
+              text: line.replace(/\*\*/g, ''), 
+              font: FONT_FAMILY, 
+              size: FONT_SIZE, 
+              bold: isHeader 
             })],
             alignment: isHeader ? AlignmentType.CENTER : AlignmentType.JUSTIFIED,
             spacing: { before: 120, after: 120, line: 360 }
@@ -113,16 +107,49 @@ export const generateDocx = async (
       }
     }
   });
+  return elements;
+};
+
+export const generateDocx = async (
+  content: string, 
+  copyNumber: number, 
+  originalFileName: string, 
+  mediaStorage: Record<number, string>,
+  solutionContent?: string,
+  solutionMediaStorage?: Record<number, string>
+) => {
+  let children: (Paragraph | Table)[] = processContentToElements(content, mediaStorage);
+  
+  // Nếu có lời giải, thêm dấu ngắt trang và nội dung lời giải
+  if (solutionContent) {
+    children.push(new Paragraph({ children: [new PageBreak()] }));
+    
+    // Thêm tiêu đề cho phần đáp án
+    children.push(new Paragraph({
+      children: [new TextRun({ 
+        text: "ĐÁP ÁN VÀ LỜI GIẢI CHI TIẾT", 
+        font: FONT_FAMILY, 
+        size: 32, 
+        bold: true,
+        underline: {}
+      })],
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 400, after: 400 }
+    }));
+
+    const solutionElements = processContentToElements(solutionContent, solutionMediaStorage || {});
+    children = children.concat(solutionElements);
+  }
 
   const footer = new Footer({
     children: [
       new Paragraph({
         children: [new TextRun({ 
-            text: "Create by Hoà Hiệp AI – 0983.676.470", 
-            font: FONT_FAMILY, 
-            size: 16, 
-            italics: true, 
-            color: "808080" 
+          text: "Create by Hoà Hiệp AI – 0983.676.470", 
+          font: FONT_FAMILY, 
+          size: 16, 
+          italics: true, 
+          color: "808080" 
         })],
         alignment: AlignmentType.CENTER
       }),
