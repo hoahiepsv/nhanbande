@@ -72,7 +72,6 @@ export const generateDocx = async (
               children: cells.map(c => new TableCell({
                 children: [new Paragraph({
                   children: [new TextRun({ 
-                    // Giữ lại dấu $ để MathType có thể nhận diện
                     text: c.replace(/\*\*/g, ''), 
                     font: FONT_FAMILY, 
                     size: FONT_SIZE 
@@ -101,7 +100,6 @@ export const generateDocx = async (
           const isHeader = (line === line.toUpperCase() && line.length > 5) || line.includes('SỞ GD&ĐT') || line.includes('ĐỀ SỐ');
           children.push(new Paragraph({
             children: [new TextRun({ 
-                // Giữ lại dấu $ để hỗ trợ chuyển đổi sang MathType
                 text: line.replace(/\*\*/g, ''), 
                 font: FONT_FAMILY, 
                 size: FONT_SIZE, 
@@ -120,7 +118,7 @@ export const generateDocx = async (
     children: [
       new Paragraph({
         children: [new TextRun({ 
-            text: "Đề thi được tạo bởi Hoà Hiệp AI – 0983.676.470", 
+            text: "Create by Hoà Hiệp AI – 0983.676.470", 
             font: FONT_FAMILY, 
             size: 16, 
             italics: true, 
