@@ -173,10 +173,8 @@ export const ExamPreview: React.FC<ExamPreviewProps> = ({ exam, originalFileName
       </div>
 
       <div className="bg-slate-50 p-4 text-center border-t border-gray-200 flex items-center justify-center gap-4">
-        <div className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] flex items-center gap-2">
-          <span>Hệ thống biên soạn đề thi AI</span>
-          <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-          <span>Phát triển 2024</span>
+        <div className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em] flex items-center gap-2">
+          <span>Create by Hoà Hiệp AI – 0983.676.470</span>
         </div>
       </div>
 
