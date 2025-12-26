@@ -6,9 +6,12 @@ import { fileToGenerativePart } from "../utils/helpers";
 export const generateExamCopy = async (
   model: ModelType,
   files: File[],
-  copyIndex: number
+  copyIndex: number,
+  customApiKey?: string
 ): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Ưu tiên custom API Key từ người dùng, nếu không có dùng process.env.API_KEY
+  const apiKey = customApiKey || process.env.API_KEY;
+  const ai = new GoogleGenAI({ apiKey: apiKey as string });
   const fileParts = await Promise.all(files.map(f => fileToGenerativePart(f)));
 
   const systemInstruction = `
@@ -56,6 +59,6 @@ QUY TẮC CẤU TRÚC:
     return response.text || "Lỗi: Không nhận được phản hồi từ AI.";
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    throw new Error(`Lỗi kết nối AI: ${error.message || "Kiểm tra lại kết nối mạng"}`);
+    throw new Error(`Lỗi kết nối AI: ${error.message || "Kiểm tra lại kết nối mạng hoặc API Key"}`);
   }
 };
