@@ -202,6 +202,8 @@ const App: React.FC = () => {
                             key={exam.id}
                             exam={exam}
                             originalFileName={files[0]?.file.name || 'De_thi_goc'}
+                            model={model}
+                            apiKey={customApiKey}
                         />
                     ))}
                 </div>
