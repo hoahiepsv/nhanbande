@@ -5,12 +5,14 @@ import { FileUploader } from './components/FileUploader';
 import { ExamPreview } from './components/ExamPreview';
 import { ApiKeyInput } from './components/ApiKeyInput';
 import { generateExamCopy } from './services/geminiService';
-import { Zap, BrainCircuit, Copy, Loader2, Copyright, CheckCircle2, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Zap, BrainCircuit, Copy, Loader2, Copyright, CheckCircle2, AlertCircle, ShieldCheck, FileText } from 'lucide-react';
 
 const App: React.FC = () => {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [model, setModel] = useState<ModelType>(ModelType.FLASH);
   const [numCopies, setNumCopies] = useState(1);
+  const [includeSolution, setIncludeSolution] = useState(true);
+  const [exportWithAnswerKey, setExportWithAnswerKey] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedExams, setGeneratedExams] = useState<GeneratedExam[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -34,12 +36,23 @@ const App: React.FC = () => {
       const newExams: GeneratedExam[] = [];
       const rawFiles = files.map(f => f.file);
 
-      for (let i = 1; i <= numCopies; i++) {
-        const content = await generateExamCopy(model, rawFiles, i, customApiKey);
+      for (let i = (numCopies === 0 ? 0 : 1); i <= numCopies; i++) {
+        const rawResponse = await generateExamCopy(model, rawFiles, i, customApiKey, includeSolution);
+        
+        let content = rawResponse;
+        let solution = undefined;
+
+        if (includeSolution && rawResponse.includes('[[SOLUTION_START]]')) {
+          const parts = rawResponse.split('[[SOLUTION_START]]');
+          content = parts[0].trim();
+          solution = parts[1].trim();
+        }
+
         newExams.push({
           id: Date.now().toString() + i,
           copyNumber: i,
           content: content,
+          solution: solution,
           timestamp: Date.now()
         });
       }
@@ -139,12 +152,62 @@ const App: React.FC = () => {
                <div className="flex items-center gap-4">
                  <input
                   type="number"
-                  min="1"
+                  min="0"
                   max="10"
                   value={numCopies}
-                  onChange={(e) => setNumCopies(Math.max(1, parseInt(e.target.value) || 1))}
+                  onChange={(e) => setNumCopies(Math.max(0, parseInt(e.target.value) || 0))}
                   className="w-full p-4 border-2 border-slate-100 rounded-2xl text-center font-black text-slate-900 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-2xl shadow-inner bg-slate-50"
                  />
+               </div>
+            </div>
+
+            <div className="mt-6 pt-6 border-t border-slate-100 space-y-3">
+               <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${includeSolution ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
+                      <CheckCircle2 size={20} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-slate-900 uppercase tracking-tight">Tạo đáp án</p>
+                      <p className="text-[9px] text-slate-500 font-medium">Tự động giải chi tiết đề thi</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setIncludeSolution(prev => {
+                        const newValue = !prev;
+                        if (!newValue) setExportWithAnswerKey(false);
+                        return newValue;
+                      });
+                    }}
+                    className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 ${includeSolution ? 'bg-blue-600' : 'bg-slate-300'}`}
+                  >
+                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-300 ${includeSolution ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                  </button>
+               </div>
+
+               <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${exportWithAnswerKey ? 'bg-blue-100 text-blue-600' : 'bg-slate-200 text-slate-500'}`}>
+                      <FileText size={20} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-slate-900 uppercase tracking-tight">Xuất kèm đáp án</p>
+                      <p className="text-[9px] text-slate-500 font-medium">Đáp án nằm ở trang cuối file Word</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setExportWithAnswerKey(prev => {
+                        const newValue = !prev;
+                        if (newValue) setIncludeSolution(true);
+                        return newValue;
+                      });
+                    }}
+                    className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 ${exportWithAnswerKey ? 'bg-blue-600' : 'bg-slate-300'}`}
+                  >
+                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-300 ${exportWithAnswerKey ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                  </button>
                </div>
             </div>
           </section>
@@ -204,6 +267,7 @@ const App: React.FC = () => {
                             originalFileName={files[0]?.file.name || 'De_thi_goc'}
                             model={model}
                             apiKey={customApiKey}
+                            exportWithAnswerKey={exportWithAnswerKey}
                         />
                     ))}
                 </div>

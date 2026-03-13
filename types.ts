@@ -8,6 +8,7 @@ export interface GeneratedExam {
   id: string;
   copyNumber: number;
   content: string; // The raw text/latex content
+  solution?: string; // Optional solution content
   timestamp: number;
 }
 
