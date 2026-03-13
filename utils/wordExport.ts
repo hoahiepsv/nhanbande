@@ -1,5 +1,5 @@
 
-import { Document, Packer, Paragraph, TextRun, Footer, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, PageBreak } from "docx";
+import { Document, Packer, Paragraph, TextRun, Footer, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, PageBreak, Tab } from "docx";
 import * as FileSaver from "file-saver";
 
 const FONT_FAMILY = "Times New Roman";
@@ -57,28 +57,40 @@ const processContentToElements = (content: string, mediaStorage: Record<number, 
       const lines = part.split('\n');
       let i = 0;
       while (i < lines.length) {
-        const line = lines[i].trim();
-        if (line.includes(':::')) {
+        const line = lines[i];
+        const trimmedLine = line.trim();
+        
+        if (trimmedLine.includes(':::')) {
           const tableRows: TableRow[] = [];
           while (i < lines.length && lines[i].trim().includes(':::')) {
             const cells = lines[i].trim().split(':::').map(c => c.trim());
             tableRows.push(new TableRow({
-              children: cells.map(c => new TableCell({
-                children: [new Paragraph({
-                  children: [new TextRun({ 
-                    text: c.replace(/\*\*/g, ''), 
-                    font: FONT_FAMILY, 
-                    size: FONT_SIZE 
+              children: cells.map(c => {
+                const cellTextParts = c.split(/(\*\*.*?\*\*)/g);
+                const cellChildren: TextRun[] = [];
+                cellTextParts.forEach(part => {
+                  if (!part) return;
+                  const isBold = part.startsWith('**') && part.endsWith('**');
+                  cellChildren.push(new TextRun({
+                    text: isBold ? part.replace(/\*\*/g, '') : part,
+                    font: FONT_FAMILY,
+                    size: FONT_SIZE,
+                    bold: isBold
+                  }));
+                });
+                return new TableCell({
+                  children: [new Paragraph({
+                    children: cellChildren,
+                    alignment: AlignmentType.CENTER
                   })],
-                  alignment: AlignmentType.CENTER
-                })],
-                borders: {
-                  top: { style: BorderStyle.SINGLE, size: 1, color: COLOR_BLACK },
-                  bottom: { style: BorderStyle.SINGLE, size: 1, color: COLOR_BLACK },
-                  left: { style: BorderStyle.SINGLE, size: 1, color: COLOR_BLACK },
-                  right: { style: BorderStyle.SINGLE, size: 1, color: COLOR_BLACK },
-                }
-              }))
+                  borders: {
+                    top: { style: BorderStyle.SINGLE, size: 1, color: COLOR_BLACK },
+                    bottom: { style: BorderStyle.SINGLE, size: 1, color: COLOR_BLACK },
+                    left: { style: BorderStyle.SINGLE, size: 1, color: COLOR_BLACK },
+                    right: { style: BorderStyle.SINGLE, size: 1, color: COLOR_BLACK },
+                  }
+                });
+              })
             }));
             i++;
           }
@@ -90,17 +102,44 @@ const processContentToElements = (content: string, mediaStorage: Record<number, 
             }));
           }
           continue;
-        } else if (line !== "") {
-          const isHeader = (line === line.toUpperCase() && line.length > 5) || line.includes('SỞ GD&ĐT') || line.includes('ĐỀ SỐ');
+        } else if (trimmedLine !== "") {
+          const isHeader = (trimmedLine === trimmedLine.toUpperCase() && trimmedLine.length > 5 && trimmedLine.length < 120) || 
+                           trimmedLine.includes('SỞ GD&ĐT') || trimmedLine.includes('ĐỀ SỐ') || trimmedLine.includes('KỲ THI') ||
+                           trimmedLine.includes('ĐỀ KIỂM TRA') || trimmedLine.includes('Môn:') || trimmedLine.includes('Thời gian:');
+          
+          const isQuestion = trimmedLine.startsWith('Câu ') || trimmedLine.startsWith('Bài ');
+          
+          // Xử lý Bold text (**) và Tab
+          const textParts = line.split(/(\*\*.*?\*\*|\t)/g);
+          const children: any[] = [];
+          
+          textParts.forEach((part) => {
+            if (!part) return;
+            
+            if (part === '\t') {
+              children.push(new Tab());
+            } else if (part.startsWith('**') && part.endsWith('**')) {
+              children.push(new TextRun({ 
+                text: part.replace(/\*\*/g, ''), 
+                font: FONT_FAMILY, 
+                size: FONT_SIZE, 
+                bold: true 
+              }));
+            } else {
+              children.push(new TextRun({ 
+                text: part, 
+                font: FONT_FAMILY, 
+                size: FONT_SIZE, 
+                bold: isHeader || isQuestion 
+              }));
+            }
+          });
+
           elements.push(new Paragraph({
-            children: [new TextRun({ 
-              text: line.replace(/\*\*/g, ''), 
-              font: FONT_FAMILY, 
-              size: FONT_SIZE, 
-              bold: isHeader 
-            })],
+            children: children,
             alignment: isHeader ? AlignmentType.CENTER : AlignmentType.JUSTIFIED,
-            spacing: { before: 120, after: 120, line: 360 }
+            spacing: { before: 120, after: 120, line: 360 },
+            indent: !isHeader && !isQuestion && line.startsWith('    ') ? { firstLine: 425 } : undefined
           }));
         }
         i++;
@@ -158,7 +197,14 @@ export const generateDocx = async (
 
   const doc = new Document({
     sections: [{
-      properties: { margin: { top: 720, right: 720, bottom: 720, left: 720 } },
+      properties: { 
+        margin: { 
+          top: 1134,    // 2.0cm
+          right: 850,   // 1.5cm
+          bottom: 1134, // 2.0cm
+          left: 1701    // 3.0cm
+        } 
+      },
       footers: { default: footer },
       children: children,
     }],
