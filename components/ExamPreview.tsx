@@ -13,14 +13,15 @@ interface ExamPreviewProps {
   originalFileName: string;
   model: ModelType;
   apiKey?: string;
+  exportWithAnswerKey?: boolean;
 }
 
-export const ExamPreview: React.FC<ExamPreviewProps> = ({ exam, originalFileName, model, apiKey }) => {
+export const ExamPreview: React.FC<ExamPreviewProps> = ({ exam, originalFileName, model, apiKey, exportWithAnswerKey }) => {
   const [examMedia, setExamMedia] = useState<Record<number, string>>({});
   const [solutionMedia, setSolutionMedia] = useState<Record<number, string>>({});
-  const [solution, setSolution] = useState<string | null>(null);
+  const [solution, setSolution] = useState<string | null>(exam.solution || null);
   const [isSolving, setIsSolving] = useState(false);
-  const [showSolution, setShowSolution] = useState(false);
+  const [showSolution, setShowSolution] = useState(!!exam.solution);
 
   const handleExamMediaGenerated = useCallback((index: number, base64: string) => {
     setExamMedia(prev => ({ ...prev, [index]: base64 }));
@@ -36,7 +37,7 @@ export const ExamPreview: React.FC<ExamPreviewProps> = ({ exam, originalFileName
       exam.copyNumber, 
       originalFileName, 
       examMedia, 
-      solution || undefined, 
+      exportWithAnswerKey ? (solution || undefined) : undefined, 
       solutionMedia
     );
   };
@@ -168,7 +169,7 @@ export const ExamPreview: React.FC<ExamPreviewProps> = ({ exam, originalFileName
       <div className="bg-slate-900 p-6 flex flex-wrap justify-between items-center sticky top-0 z-20 text-white border-b border-slate-700 gap-4">
         <div className="flex flex-col">
             <h3 className="font-black text-xl flex items-center gap-2 tracking-tighter uppercase">
-                BẢN SAO ĐỀ SỐ {exam.copyNumber}
+                {exam.copyNumber === 0 ? 'ĐỀ GỐC (TRÍCH XUẤT)' : `BẢN SAO ĐỀ SỐ ${exam.copyNumber}`}
             </h3>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700 font-mono text-blue-400">
