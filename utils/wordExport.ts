@@ -38,7 +38,7 @@ const processContentToElements = (content: string, mediaStorage: Record<number, 
             new ImageRun({
               data: imgData,
               transformation: { width: 450, height: 320 },
-            })
+            } as any)
           ],
           alignment: AlignmentType.CENTER,
           spacing: { before: 400, after: 400 }
@@ -65,7 +65,7 @@ const processContentToElements = (content: string, mediaStorage: Record<number, 
           while (i < lines.length && lines[i].trim().includes(':::')) {
             const cells = lines[i].trim().split(':::').map(c => c.trim());
             tableRows.push(new TableRow({
-              children: cells.map(c => {
+              children: cells.map((c, cellIndex) => {
                 const cellTextParts = c.split(/(\*\*.*?\*\*)/g);
                 const cellChildren: TextRun[] = [];
                 cellTextParts.forEach(part => {
@@ -81,7 +81,7 @@ const processContentToElements = (content: string, mediaStorage: Record<number, 
                 return new TableCell({
                   children: [new Paragraph({
                     children: cellChildren,
-                    alignment: AlignmentType.CENTER
+                    alignment: (cells.length === 3 && cellIndex === 1 && tableRows.length > 0) ? AlignmentType.JUSTIFIED : AlignmentType.CENTER
                   })],
                   borders: {
                     top: { style: BorderStyle.SINGLE, size: 1, color: COLOR_BLACK },
@@ -97,8 +97,7 @@ const processContentToElements = (content: string, mediaStorage: Record<number, 
           if (tableRows.length > 0) {
             elements.push(new Table({ 
               rows: tableRows, 
-              width: { size: 100, type: WidthType.PERCENTAGE },
-              spacing: { before: 200, after: 200 }
+              width: { size: 100, type: WidthType.PERCENTAGE }
             }));
           }
           continue;
@@ -198,11 +197,13 @@ export const generateDocx = async (
   const doc = new Document({
     sections: [{
       properties: { 
-        margin: { 
-          top: 1134,    // 2.0cm
-          right: 850,   // 1.5cm
-          bottom: 1134, // 2.0cm
-          left: 1701    // 3.0cm
+        page: {
+          margin: { 
+            top: 1134,    // 2.0cm
+            right: 850,   // 1.5cm
+            bottom: 1134, // 2.0cm
+            left: 1701    // 3.0cm
+          }
         } 
       },
       footers: { default: footer },
